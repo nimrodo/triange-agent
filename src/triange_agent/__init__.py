@@ -1,2 +1,3 @@
-def main() -> None:
-    print("Hello from triange-agent!")
+from triange_agent.cli import main
+
+__all__ = ["main"]

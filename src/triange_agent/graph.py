@@ -2,6 +2,7 @@ from typing import Literal, cast
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.vectorstores import InMemoryVectorStore
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -27,9 +28,12 @@ def _route_after_review(state: TriageState) -> Literal["answer", "__end__"]:
 
 
 def build_graph(
-    llm: BaseChatModel, retriever: InMemoryVectorStore
+    llm: BaseChatModel,
+    retriever: InMemoryVectorStore,
+    checkpointer: BaseCheckpointSaver | None = None,
+    search_k: int = 4,
 ) -> CompiledStateGraph:
-    search_tool = make_search_tool(retriever)
+    search_tool = make_search_tool(retriever, k=search_k)
     classifier_llm = cast(ClassifierLLM, llm)
     answer_llm = cast(AnswerLLM, llm)
 
@@ -47,4 +51,4 @@ def build_graph(
         "review", _route_after_review, {"answer": "answer", END: END}
     )
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
