@@ -2,6 +2,7 @@ from pathlib import Path
 
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+from langchain_core.tools import BaseTool, tool
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -33,10 +34,24 @@ def build_vector_store(embeddings: Embeddings | None = None) -> InMemoryVectorSt
 
 
 def retrieve_snippets(
-    vector_store: InMemoryVectorStore, query: str, k: int = 4
+    retriever: InMemoryVectorStore, query: str, k: int = 4
 ) -> list[RetrievedSnippet]:
-    results = vector_store.similarity_search(query, k=k)
+    results = retriever.similarity_search(query, k=k)
     return [
         RetrievedSnippet(content=doc.page_content, source=doc.metadata["source"])
         for doc in results
     ]
+
+
+def format_snippets(snippets: list[RetrievedSnippet]) -> str:
+    return "\n\n".join(f"[{s.source}] {s.content}" for s in snippets)
+
+
+def make_search_tool(retriever: InMemoryVectorStore) -> BaseTool:
+    @tool(response_format="content_and_artifact")
+    def search_knowledge_base(query: str) -> tuple[str, list[RetrievedSnippet]]:
+        """Search the KnowledgeBase for policy content relevant to the query."""
+        snippets = retrieve_snippets(retriever, query)
+        return format_snippets(snippets), snippets
+
+    return search_knowledge_base
