@@ -2,7 +2,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command, Interrupt
 
-from triange_agent.dependencies import build_llm, build_retriever
+from triange_agent.dependencies import Settings, build_llm, build_retriever
 from triange_agent.graph import build_graph
 from triange_agent.nodes.review import ReviewRequest, ReviewResponse
 from triange_agent.state import Ticket, TriageState
@@ -37,7 +37,13 @@ def _prompt_for_review(request: ReviewRequest) -> ReviewResponse:
 
 
 def run(ticket: Ticket) -> None:
-    graph = build_graph(build_llm(), build_retriever(), InMemorySaver())
+    settings = Settings()
+    graph = build_graph(
+        build_llm(settings),
+        build_retriever(settings),
+        InMemorySaver(),
+        search_k=settings.retrieval_k,
+    )
     config: RunnableConfig = {"configurable": {"thread_id": THREAD_ID}}
 
     stream_input: TriageState | Command = TriageState(ticket=ticket)

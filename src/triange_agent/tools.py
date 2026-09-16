@@ -22,11 +22,15 @@ def load_knowledge_base(directory: Path = KNOWLEDGE_BASE_DIR) -> list[Document]:
     ]
 
 
-def build_vector_store(embeddings: Embeddings | None = None) -> InMemoryVectorStore:
+def build_vector_store(
+    embeddings: Embeddings | None = None,
+    chunk_size: int = CHUNK_SIZE,
+    chunk_overlap: int = CHUNK_OVERLAP,
+) -> InMemoryVectorStore:
     embeddings = embeddings or OpenAIEmbeddings(model=EMBEDDING_MODEL)
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap
     )
     chunks = splitter.split_documents(load_knowledge_base())
 
@@ -47,11 +51,11 @@ def format_snippets(snippets: list[RetrievedSnippet]) -> str:
     return "\n\n".join(f"[{s.source}] {s.content}" for s in snippets)
 
 
-def make_search_tool(retriever: InMemoryVectorStore) -> BaseTool:
+def make_search_tool(retriever: InMemoryVectorStore, k: int = 4) -> BaseTool:
     @tool(response_format="content_and_artifact")
     def search_knowledge_base(query: str) -> tuple[str, list[RetrievedSnippet]]:
         """Search the KnowledgeBase for policy content relevant to the query."""
-        snippets = retrieve_snippets(retriever, query)
+        snippets = retrieve_snippets(retriever, query, k=k)
         return format_snippets(snippets), snippets
 
     return search_knowledge_base

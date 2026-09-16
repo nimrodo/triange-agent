@@ -13,6 +13,7 @@ dependencies = [
     "langgraph>=1.2.11",
     "numpy>=2.5.3",
     "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
 ]
 
 [project.scripts]

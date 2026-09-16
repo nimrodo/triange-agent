@@ -31,8 +31,9 @@ def build_graph(
     llm: BaseChatModel,
     retriever: InMemoryVectorStore,
     checkpointer: BaseCheckpointSaver | None = None,
+    search_k: int = 4,
 ) -> CompiledStateGraph:
-    search_tool = make_search_tool(retriever)
+    search_tool = make_search_tool(retriever, k=search_k)
     classifier_llm = cast(ClassifierLLM, llm)
     answer_llm = cast(AnswerLLM, llm)
 
