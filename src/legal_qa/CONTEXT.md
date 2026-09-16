@@ -25,5 +25,5 @@ The agent's response to a Question: text grounded in retrieved Clauses, one or m
 _Avoid_: Response, Result
 
 **Confidence**:
-The signal on an Answer indicating whether it's well-grounded in retrieved Clauses. Its mechanics (levels, thresholds, how it's computed) are not yet decided — see the open decision on designing the confidence signal.
-_Avoid_: Score (implies a specific numeric mechanism not yet decided)
+A three-state signal on an Answer: **answered** (a retrieved Clause clears the similarity floor and the model is confident it fully addresses the Question), **uncertain** (a Clause clears the floor but the model isn't confident it fully answers the Question — the Answer is still shown, visibly flagged), or **not_found** (no retrieved Clause clears the similarity floor — no synthesized Answer is given, only a plain statement that the LegalDocument doesn't appear to address the Question). The similarity floor is a hard guard: it overrides the model's own rating, so the model can't talk itself into "answered" on an irrelevant Clause.
+_Avoid_: Score (implies a single numeric mechanism; this is a categorical state derived from two signals, not one number)
