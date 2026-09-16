@@ -48,6 +48,24 @@ retry loops, refinement loops, or any "try again with feedback" behavior — but
 cycle is a bug, not a feature, so real cyclic graphs almost always carry an explicit counter and
 a cap in the state used to route.
 
+Here is this repo's actual topology, straight from `graph.py`'s edges and conditional-routing
+functions:
+
+```mermaid
+flowchart LR
+    S((start)) --> C[classify]
+    C --> A[answer]
+    A -- confident --> E((END))
+    A -- needs_escalation --> R[review]
+    R -- approved --> E
+    R -- "rejected, retry_count ≤ MAX_RETRIES" --> A
+    R -- "rejected, retry cap exceeded" --> E
+```
+
+`answer` → `review` → `answer` is the cycle; the two labeled edges out of `review` are
+`_route_after_review` deciding, each time, whether the state it's looking at still qualifies for
+another lap.
+
 **How this repo demonstrates it.**
 - `src/triange_agent/graph.py` — `_route_after_review` is the conditional-edge function: if
   `review_decision == "rejected"` and `retry_count` hasn't exceeded `MAX_RETRIES` (3), route back
