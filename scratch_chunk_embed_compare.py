@@ -116,7 +116,9 @@ def build_structure_aware_chunks(
 ) -> list[Document]:
     docs = []
     for i, b in enumerate(boundaries):
-        end = boundaries[i + 1].body_offset if i + 1 < len(boundaries) else len(body_text)
+        end = (
+            boundaries[i + 1].body_offset if i + 1 < len(boundaries) else len(body_text)
+        )
         content = body_text[b.body_offset : end].strip()
         if not content or "(בוטל)" in content[:40]:
             # Skip empty/repealed-only sections -- no substantive content
@@ -144,7 +146,9 @@ def build_fixed_size_chunks(body_text: str) -> list[Document]:
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP
     )
-    return splitter.create_documents([body_text], metadatas=[{"source": "ordinance.pdf"}])
+    return splitter.create_documents(
+        [body_text], metadatas=[{"source": "ordinance.pdf"}]
+    )
 
 
 # Representative payroll-accountant questions, each paired with a
@@ -182,16 +186,21 @@ def evaluate(name: str, vector_store: InMemoryVectorStore, k: int = 4) -> None:
     for question, expected_phrases in QUESTIONS:
         results = vector_store.similarity_search(question, k=k)
         found = any(
-            any(phrase in r.page_content for phrase in expected_phrases) for r in results
+            any(phrase in r.page_content for phrase in expected_phrases)
+            for r in results
         )
         hits += found
         marker = "HIT " if found else "MISS"
         print(f"[{marker}] {question}")
         print(f"       expected phrase(s): {expected_phrases}")
         for r in results:
-            src = r.metadata.get("source", "ordinance.pdf (fixed-size, no section metadata)")
+            src = r.metadata.get(
+                "source", "ordinance.pdf (fixed-size, no section metadata)"
+            )
             print(f"       -> {src}")
-    print(f"\n{name}: {hits}/{len(QUESTIONS)} questions had the right section in top-{k}")
+    print(
+        f"\n{name}: {hits}/{len(QUESTIONS)} questions had the right section in top-{k}"
+    )
 
 
 # --- Lexical (word-overlap) baseline -------------------------------------
@@ -229,7 +238,9 @@ def lexical_rank_evaluate(name: str, docs: list[Document], k: int = 4) -> None:
         marker = "HIT " if found else "MISS"
         sources = [d.metadata.get("source", "ordinance.pdf (fixed-size)") for d in top]
         print(f"[{marker}] {question} -> {sources}")
-    print(f"\n{name}: {hits}/{len(QUESTIONS)} questions had the right section in top-{k}")
+    print(
+        f"\n{name}: {hits}/{len(QUESTIONS)} questions had the right section in top-{k}"
+    )
 
 
 def main() -> None:
@@ -242,8 +253,10 @@ def main() -> None:
     print(f"Parsed {len(toc_entries)} TOC entries")
 
     boundaries = locate_section_boundaries(body_text, toc_entries)
-    print(f"Located {len(boundaries)}/{len(toc_entries)} section boundaries in body text "
-          f"({len(boundaries) / len(toc_entries):.0%} recall via title-text matching)")
+    print(
+        f"Located {len(boundaries)}/{len(toc_entries)} section boundaries in body text "
+        f"({len(boundaries) / len(toc_entries):.0%} recall via title-text matching)"
+    )
 
     structure_chunks = build_structure_aware_chunks(body_text, boundaries)
     fixed_chunks = build_fixed_size_chunks(body_text)
@@ -251,22 +264,31 @@ def main() -> None:
     print(f"Fixed-size chunks ({CHUNK_SIZE}/{CHUNK_OVERLAP}): {len(fixed_chunks)}")
 
     lengths = [len(c.page_content) for c in structure_chunks]
-    print(f"Structure-aware chunk length: min={min(lengths)} max={max(lengths)} "
-          f"avg={sum(lengths) / len(lengths):.0f}")
+    print(
+        f"Structure-aware chunk length: min={min(lengths)} max={max(lengths)} "
+        f"avg={sum(lengths) / len(lengths):.0f}"
+    )
 
     embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
 
     structure_store = build_store_in_batches(structure_chunks, embeddings)
     fixed_store = build_store_in_batches(fixed_chunks, embeddings)
 
-    evaluate(f"structure-aware (one chunk/section, n={len(structure_chunks)})", structure_store)
-    evaluate(f"fixed-size ({CHUNK_SIZE}/{CHUNK_OVERLAP}, n={len(fixed_chunks)})", fixed_store)
+    evaluate(
+        f"structure-aware (one chunk/section, n={len(structure_chunks)})",
+        structure_store,
+    )
+    evaluate(
+        f"fixed-size ({CHUNK_SIZE}/{CHUNK_OVERLAP}, n={len(fixed_chunks)})", fixed_store
+    )
 
     lexical_rank_evaluate(
-        f"structure-aware (one chunk/section, n={len(structure_chunks)})", structure_chunks
+        f"structure-aware (one chunk/section, n={len(structure_chunks)})",
+        structure_chunks,
     )
     lexical_rank_evaluate(
-        f"fixed-size ({CHUNK_SIZE}/{CHUNK_OVERLAP}, n={len(fixed_chunks)})", fixed_chunks
+        f"fixed-size ({CHUNK_SIZE}/{CHUNK_OVERLAP}, n={len(fixed_chunks)})",
+        fixed_chunks,
     )
 
 

@@ -22,7 +22,7 @@ jobs:
       - name: Install Ollama
         run: curl -fsSL https://ollama.com/install.sh | sh
 
-      - name: Start Ollama and pull embedding model
+      - name: Start Ollama and pull embedding models
         run: |
           ollama serve &
           for i in $(seq 1 30); do
@@ -30,6 +30,7 @@ jobs:
             sleep 1
           done
           ollama pull nomic-embed-text
+          ollama pull bge-m3
 
       - name: Install dependencies
         run: uv sync --locked

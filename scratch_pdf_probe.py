@@ -23,7 +23,13 @@ PDF_URL = (
 DATA_DIR = Path(__file__).parent / ".research-data"
 PDF_PATH = DATA_DIR / "ordinance.pdf"
 
-SAMPLE_PAGES = [0, 39, 100, 200, 300]  # 0-indexed: TOC, body, body, body, amendment appendix
+SAMPLE_PAGES = [
+    0,
+    39,
+    100,
+    200,
+    300,
+]  # 0-indexed: TOC, body, body, body, amendment appendix
 
 SECTION_HEADING_RE = re.compile(r"^([א-ת]?\d+)\s*סעיף")
 CHAPTER_RE = re.compile(r"פרק\s+\S+")
@@ -59,8 +65,10 @@ def probe_pymupdf(path: Path) -> None:
                 chapters += 1
             if AMENDMENT_RE.search(line):
                 amendments += 1
-    print(f"regex-detected section headings: {headings}, chapter headings: {chapters}, "
-          f"amendment notes: {amendments}")
+    print(
+        f"regex-detected section headings: {headings}, chapter headings: {chapters}, "
+        f"amendment notes: {amendments}"
+    )
 
 
 def probe_pdfplumber(path: Path) -> None:
