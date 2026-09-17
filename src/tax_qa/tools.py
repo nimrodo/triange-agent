@@ -127,13 +127,23 @@ def extract_clauses(
     return clauses
 
 
+# The full ordinance is ~570 Clauses; embedding them in one request risks
+# exceeding a local embedding server's batch/context limits (observed with
+# Ollama's bge-m3). Batching keeps each request small regardless of provider.
+DEFAULT_EMBEDDING_BATCH_SIZE = 100
+
+
 def build_vector_store(
     pdf_path: Path,
     embeddings: Embeddings,
     body_page_range: range = BODY_PAGE_RANGE,
+    batch_size: int = DEFAULT_EMBEDDING_BATCH_SIZE,
 ) -> InMemoryVectorStore:
     clauses = extract_clauses(pdf_path, body_page_range)
-    return InMemoryVectorStore.from_documents(clauses, embeddings)
+    vector_store = InMemoryVectorStore(embedding=embeddings)
+    for start in range(0, len(clauses), batch_size):
+        vector_store.add_documents(clauses[start : start + batch_size])
+    return vector_store
 
 
 def retrieve_clauses(

@@ -13,12 +13,14 @@ class RetrievedClause(BaseModel):
 class Citation(BaseModel):
     source: str
     excerpt: str
+    score: float | None = None
 
 
 class Answer(BaseModel):
     text: str
     citations: list[Citation]
     confidence: Literal["answered", "uncertain", "not_found"]
+    considered: list[RetrievedClause] = Field(default_factory=list)
 
 
 class Exchange(BaseModel):

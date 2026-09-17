@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from langchain_core.embeddings import Embeddings
 from langchain_ollama import OllamaEmbeddings
 
 from tax_qa.tools import (
@@ -11,6 +12,25 @@ from tax_qa.tools import (
 
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "ordinance_excerpt.pdf"
 FIXTURE_PAGE_RANGE = range(4)
+
+
+class BatchLimitedFakeEmbeddings(Embeddings):
+    """Rejects any single embed_documents call larger than max_batch --
+    mirrors the local Ollama server refusing oversized batch requests
+    against the full real ordinance (500+ Clauses)."""
+
+    def __init__(self, max_batch: int) -> None:
+        self.max_batch = max_batch
+        self.batch_sizes: list[int] = []
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        if len(texts) > self.max_batch:
+            raise ValueError(f"batch of {len(texts)} exceeds max {self.max_batch}")
+        self.batch_sizes.append(len(texts))
+        return [[0.0] for _ in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return [0.0]
 
 
 def test_extract_clauses_returns_one_document_per_real_clause() -> None:
@@ -52,6 +72,19 @@ def test_retrieve_clauses_returns_relevant_clause_for_real_hebrew_query() -> Non
     assert any(c.source == "סעיף 121" for c in clauses)
     assert any("המס על הכנסתו החייבת של יחיד" in c.content for c in clauses)
     assert all(isinstance(c.score, float) for c in clauses)
+
+
+def test_build_vector_store_embeds_documents_in_batches() -> None:
+    embeddings = BatchLimitedFakeEmbeddings(max_batch=1)
+
+    vector_store = build_vector_store(
+        FIXTURE_PDF, embeddings, FIXTURE_PAGE_RANGE, batch_size=1
+    )
+
+    clauses = extract_clauses(FIXTURE_PDF, FIXTURE_PAGE_RANGE)
+    assert len(embeddings.batch_sizes) == len(clauses)
+    assert all(size <= 1 for size in embeddings.batch_sizes)
+    assert len(vector_store.store) == len(clauses)
 
 
 def test_make_search_tool_returns_content_and_clause_artifact_for_real_query() -> None:

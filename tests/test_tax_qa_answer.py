@@ -76,6 +76,7 @@ def test_answer_returns_answered_draft_with_citations_when_floor_is_cleared() ->
     assert result["answer"].text == draft.text
     assert result["answer"].citations
     assert any(c.source == "סעיף 121" for c in result["answer"].citations)
+    assert all(c.score is not None for c in result["answer"].citations)
     assert len(result["history"]) == 1
     assert result["history"][0].question == RELEVANT_QUESTION
     assert result["history"][0].answer is result["answer"]
@@ -104,6 +105,10 @@ def test_answer_forces_not_found_without_calling_llm_for_a_draft() -> None:
     assert result["answer"].text == ""
     assert result["answer"].citations == []
     assert len(result["history"]) == 1
+    assert result["answer"].considered
+    assert all(c.score < 0.5 for c in result["answer"].considered)
+    scores = [c.score for c in result["answer"].considered]
+    assert scores == sorted(scores, reverse=True)
 
 
 def test_answer_treats_similarity_floor_as_a_hard_override() -> None:

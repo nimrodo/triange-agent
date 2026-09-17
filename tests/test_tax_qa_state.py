@@ -28,6 +28,13 @@ def test_citation_round_trips() -> None:
 
     assert citation.source == "סעיף 121"
     assert citation.excerpt.startswith("המס")
+    assert citation.score is None
+
+
+def test_citation_carries_an_optional_similarity_score() -> None:
+    citation = Citation(source="סעיף 121", excerpt="המס", score=0.61)
+
+    assert citation.score == 0.61
 
 
 def test_answer_confidence_rejects_values_outside_fixed_set() -> None:
@@ -43,6 +50,22 @@ def test_answer_accepts_each_confidence_state() -> None:
     for confidence in ("answered", "uncertain", "not_found"):
         answer = Answer(text="t", citations=[], confidence=confidence)
         assert answer.confidence == confidence
+
+
+def test_answer_considered_clauses_default_to_empty() -> None:
+    answer = Answer(text="t", citations=[], confidence="answered")
+
+    assert answer.considered == []
+
+
+def test_answer_carries_considered_clauses_for_not_found() -> None:
+    near_miss = RetrievedClause(content="c", source="סעיף 15", score=0.22)
+
+    answer = Answer(
+        text="", citations=[], confidence="not_found", considered=[near_miss]
+    )
+
+    assert answer.considered == [near_miss]
 
 
 def test_exchange_pairs_question_with_answer() -> None:

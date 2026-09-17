@@ -50,14 +50,19 @@ def answer(
     qualifying = [clause for clause in retrieved if clause.score >= similarity_floor]
 
     if not qualifying:
-        result = Answer(text="", citations=[], confidence="not_found")
+        considered = sorted(retrieved, key=lambda clause: clause.score, reverse=True)
+        result = Answer(
+            text="", citations=[], confidence="not_found", considered=considered
+        )
     else:
         prompt = f"{state.question}\n\nRetrieved clauses:\n{format_clauses(qualifying)}"
         draft = llm.with_structured_output(AnswerDraft).invoke(prompt)
         result = Answer(
             text=draft.text,
             citations=[
-                Citation(source=clause.source, excerpt=clause.content)
+                Citation(
+                    source=clause.source, excerpt=clause.content, score=clause.score
+                )
                 for clause in qualifying
             ],
             confidence=draft.confidence,
