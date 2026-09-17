@@ -34,7 +34,7 @@ def ensure_pdf() -> Path:
     DATA_DIR.mkdir(exist_ok=True)
     if not PDF_PATH.exists():
         req = urllib.request.Request(PDF_URL, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req) as resp:  # noqa: S310 -- known gov.il source
+        with urllib.request.urlopen(req) as resp:
             PDF_PATH.write_bytes(resp.read())
     return PDF_PATH
 

@@ -54,7 +54,7 @@ PDF_PATH = Path(__file__).parent / ".research-data" / "ordinance.pdf"
 EMBEDDING_MODEL = "bge-m3"
 
 # Body runs ~pages 11-277 per #30's findings; TOC is 0-10, appendices after.
-TOC_PAGE_RANGE = range(0, 11)
+TOC_PAGE_RANGE = range(11)
 BODY_PAGE_RANGE = range(11, 278)
 
 CHUNK_SIZE = 400
