@@ -17,6 +17,7 @@ dependencies = [
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pymupdf>=1.28.2",
+    "reflex>=0.9.11.post1",
 ]
 
 [project.scripts]

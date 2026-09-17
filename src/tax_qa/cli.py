@@ -2,6 +2,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
 
 from tax_qa.dependencies import Settings, build_llm, build_retriever
+from tax_qa.formatting import percent
 from tax_qa.graph import build_graph
 from tax_qa.nodes.answer import DEFAULT_SIMILARITY_FLOOR
 from tax_qa.state import Answer, Citation, RetrievedClause
@@ -13,25 +14,21 @@ EXIT_COMMANDS = {"exit", "quit", "q"}
 NOT_FOUND_EXPLANATION = "התשובה אינה מבוססת על מסמך זה"
 
 
-def _percent(score: float) -> str:
-    return f"{round(score * 100)}%"
-
-
 def _format_citation(index: int, citation: Citation, *, show_score: bool) -> str:
     score_part = ""
     if show_score and citation.score is not None:
-        score_part = f"  ({_percent(citation.score)})"
+        score_part = f"  ({percent(citation.score)})"
     return f'  [{index}] {citation.source}{score_part} — "{citation.excerpt}"'
 
 
 def _format_considered(clause: RetrievedClause) -> str:
     gist = clause.content.splitlines()[0][:60]
-    return f"  - {clause.source}  ({_percent(clause.score)}) — {gist}"
+    return f"  - {clause.source}  ({percent(clause.score)}) — {gist}"
 
 
 def format_answer(answer: Answer) -> str:
     if answer.confidence == "not_found":
-        floor_pct = _percent(DEFAULT_SIMILARITY_FLOOR)
+        floor_pct = percent(DEFAULT_SIMILARITY_FLOOR)
         lines = [
             f"✗ לא נמצאה התייחסות — {NOT_FOUND_EXPLANATION}",
             "",
@@ -44,7 +41,7 @@ def format_answer(answer: Answer) -> str:
     if answer.confidence == "uncertain":
         scores = [c.score for c in answer.citations if c.score is not None]
         best = max(scores, default=0.0)
-        lines.append(f"⚠ תשובה לא ודאית ({_percent(best)})")
+        lines.append(f"⚠ תשובה לא ודאית ({percent(best)})")
         lines.append("")
 
     lines.append(answer.text)
