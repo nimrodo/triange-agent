@@ -58,7 +58,12 @@ def answer(
             text="", citations=[], confidence="not_found", considered=considered
         )
     else:
-        prompt = f"{state.question}\n\nRetrieved clauses:\n{format_clauses(qualifying)}"
+        prompt = (
+            "Answer the question in Hebrew, as one or more complete, well-formed "
+            "sentences grounded only in the retrieved clauses below. Do not answer "
+            "with a bare number, phrase, or sentence fragment.\n\n"
+            f"{state.question}\n\nRetrieved clauses:\n{format_clauses(qualifying)}"
+        )
         draft = llm.with_structured_output(AnswerDraft).invoke(prompt)
         result = Answer(
             text=draft.text,

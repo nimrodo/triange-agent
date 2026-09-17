@@ -27,9 +27,11 @@ class FakeStructuredLLM:
     def __init__(self, result: AnswerDraft) -> None:
         self._result = result
         self.invoked = False
+        self.last_prompt: str | None = None
 
-    def invoke(self, _input: str) -> AnswerDraft:
+    def invoke(self, prompt: str) -> AnswerDraft:
         self.invoked = True
+        self.last_prompt = prompt
         return self._result
 
 
@@ -95,6 +97,18 @@ def test_answer_returns_answered_draft_with_citations_when_floor_is_cleared() ->
     assert len(result["history"]) == 1
     assert result["history"][0].question == RELEVANT_QUESTION
     assert result["history"][0].answer is result["answer"]
+
+
+def test_answer_prompt_instructs_the_llm_to_write_full_sentences() -> None:
+    state = TaxQAState(question=RELEVANT_QUESTION)
+    draft = AnswerDraft(text="שיעור המס נע בין 10% ל-50%.", confidence="answered")
+    fake_llm = FakeLLM(_tool_call_response(RELEVANT_QUESTION), draft)
+
+    answer(state, fake_llm, _search_tool())
+
+    assert fake_llm.structured_llm.last_prompt is not None
+    assert "complete" in fake_llm.structured_llm.last_prompt.lower()
+    assert "sentence" in fake_llm.structured_llm.last_prompt.lower()
 
 
 def test_answer_returns_uncertain_draft_when_llm_self_rates_uncertain() -> None:
