@@ -22,7 +22,7 @@ DEFAULT_PDF_PATH = _REPO_ROOT / ".research-data" / "ordinance.pdf"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    chat_provider: Provider = "openai"
+    chat_provider: Provider = "ollama"
     embedding_provider: Provider = "ollama"
 
     openai_api_key: SecretStr | None = None

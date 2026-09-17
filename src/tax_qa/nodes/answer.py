@@ -8,6 +8,7 @@ from tax_qa.state import Answer, Citation, Exchange, RetrievedClause, TaxQAState
 from tax_qa.tools import format_clauses
 
 DEFAULT_SIMILARITY_FLOOR = 0.5
+MAX_CONSIDERED_CLAUSES = 3
 
 
 class AnswerDraft(BaseModel):
@@ -50,7 +51,9 @@ def answer(
     qualifying = [clause for clause in retrieved if clause.score >= similarity_floor]
 
     if not qualifying:
-        considered = sorted(retrieved, key=lambda clause: clause.score, reverse=True)
+        considered = sorted(retrieved, key=lambda clause: clause.score, reverse=True)[
+            :MAX_CONSIDERED_CLAUSES
+        ]
         result = Answer(
             text="", citations=[], confidence="not_found", considered=considered
         )

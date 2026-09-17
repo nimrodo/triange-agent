@@ -1,10 +1,12 @@
 from pathlib import Path
+from typing import cast
 
 from langchain_core.messages import AIMessage
+from langchain_core.tools import BaseTool
 from langchain_ollama import OllamaEmbeddings
 
-from tax_qa.nodes.answer import AnswerDraft, answer
-from tax_qa.state import TaxQAState
+from tax_qa.nodes.answer import MAX_CONSIDERED_CLAUSES, AnswerDraft, answer
+from tax_qa.state import RetrievedClause, TaxQAState
 from tax_qa.tools import build_vector_store, make_search_tool
 
 FIXTURE_PDF = Path(__file__).parent / "fixtures" / "ordinance_excerpt.pdf"
@@ -48,6 +50,19 @@ def _search_tool():
     embeddings = OllamaEmbeddings(model="bge-m3")
     vector_store = build_vector_store(FIXTURE_PDF, embeddings, FIXTURE_PAGE_RANGE)
     return make_search_tool(vector_store)
+
+
+class _FakeToolMessage:
+    def __init__(self, artifact: list[RetrievedClause]) -> None:
+        self.artifact = artifact
+
+
+class FakeSearchTool:
+    def __init__(self, clauses: list[RetrievedClause]) -> None:
+        self._clauses = clauses
+
+    def invoke(self, _tool_call: dict) -> _FakeToolMessage:
+        return _FakeToolMessage(self._clauses)
 
 
 def _tool_call_response(query: str) -> AIMessage:
@@ -109,6 +124,22 @@ def test_answer_forces_not_found_without_calling_llm_for_a_draft() -> None:
     assert all(c.score < 0.5 for c in result["answer"].considered)
     scores = [c.score for c in result["answer"].considered]
     assert scores == sorted(scores, reverse=True)
+
+
+def test_answer_caps_considered_to_the_top_few_near_miss_clauses() -> None:
+    state = TaxQAState(question=IRRELEVANT_QUESTION)
+    draft = AnswerDraft(text="should never be used", confidence="answered")
+    fake_llm = FakeLLM(_tool_call_response(IRRELEVANT_QUESTION), draft)
+    near_misses = [
+        RetrievedClause(content=f"תוכן {i}", source=f"סעיף {i}", score=0.4 - i * 0.01)
+        for i in range(MAX_CONSIDERED_CLAUSES + 2)
+    ]
+    fake_search_tool = FakeSearchTool(near_misses)
+
+    result = answer(state, fake_llm, cast(BaseTool, fake_search_tool))
+
+    assert len(result["answer"].considered) == MAX_CONSIDERED_CLAUSES
+    assert result["answer"].considered == near_misses[:MAX_CONSIDERED_CLAUSES]
 
 
 def test_answer_treats_similarity_floor_as_a_hard_override() -> None:
