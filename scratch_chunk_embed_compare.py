@@ -46,7 +46,12 @@ from langchain_ollama import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 PDF_PATH = Path(__file__).parent / ".research-data" / "ordinance.pdf"
-EMBEDDING_MODEL = "nomic-embed-text"
+# Swapped for issue #39: nomic-embed-text (issue #31) scored 0/6 on both
+# chunking strategies, attributed to weak Hebrew/multilingual support.
+# bge-m3 (BAAI, via Ollama) explicitly reports Hebrew ("he") results in its
+# MKQA cross-lingual retrieval table and claims 100+ working languages --
+# see docs/research/embedding-model-comparison-findings.md for citations.
+EMBEDDING_MODEL = "bge-m3"
 
 # Body runs ~pages 11-277 per #30's findings; TOC is 0-10, appendices after.
 TOC_PAGE_RANGE = range(0, 11)
