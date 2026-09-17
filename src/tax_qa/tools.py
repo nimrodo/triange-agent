@@ -20,10 +20,27 @@ BODY_PAGE_RANGE = range(11, 278)
 # flattened text unreliable -- see docs/research/chunking-embedding-findings.md.
 CLAUSE_NUMBER_FONT = "Miriam"
 
+# Part (חלק) and chapter (פרק) headings are the one other structural marker
+# with a distinct, reliable font signature (FrankRuehl at ~12pt, vs. 13pt
+# body text) -- subdivision (סימן) headings are typeset identically to body
+# text and aren't reliably detectable this way, so aren't tracked.
+STRUCTURE_HEADING_FONT = "FrankRuehl"
+STRUCTURE_HEADING_SIZE_RANGE = (11.5, 12.5)
+
 REPEALED_MARKER = "(בוטל)"
 
 _LONE_LETTER_RE = re.compile(r"^[א-ת]$")
 _LEADING_LETTER_RE = re.compile(r"^([א-ת])\.\s")
+
+
+def _is_structure_heading(spans: list[dict]) -> bool:
+    return bool(spans) and all(
+        span["font"] == STRUCTURE_HEADING_FONT
+        and STRUCTURE_HEADING_SIZE_RANGE[0]
+        < span["size"]
+        < STRUCTURE_HEADING_SIZE_RANGE[1]
+        for span in spans
+    )
 
 
 def _clause_suffix(spans: list[dict]) -> str:
@@ -40,19 +57,25 @@ def _clause_suffix(spans: list[dict]) -> str:
         text = span["text"].strip()
         if _LONE_LETTER_RE.match(text):
             return text
-    body_text = "".join(span["text"] for span in spans if span["font"] != CLAUSE_NUMBER_FONT)
+    body_text = "".join(
+        span["text"] for span in spans if span["font"] != CLAUSE_NUMBER_FONT
+    )
     match = _LEADING_LETTER_RE.match(body_text)
     return match.group(1) if match else ""
 
 
 def _locate_clause_boundaries(
     pdf_doc: pymupdf.Document, body_page_range: range
-) -> tuple[list[str], list[tuple[int, str]]]:
+) -> tuple[list[str], list[tuple[int, str, str | None, str | None]]]:
     """Split the page range into lines and record, for each line, whether it
     opens a new Clause. Returns (lines, boundaries) where boundaries are
-    (index into lines, clause number) pairs in document order."""
+    (index into lines, clause number, current part, current chapter) tuples
+    in document order -- part/chapter are whichever heading was last seen,
+    carrying the containing structure forward across clauses."""
     lines: list[str] = []
-    boundaries: list[tuple[int, str]] = []
+    boundaries: list[tuple[int, str, str | None, str | None]] = []
+    current_part: str | None = None
+    current_chapter: str | None = None
     for page_index in body_page_range:
         if page_index >= pdf_doc.page_count:
             break
@@ -60,11 +83,20 @@ def _locate_clause_boundaries(
         for block in page_dict["blocks"]:
             for line in block.get("lines", []):
                 spans = line["spans"]
+                line_text = "".join(span["text"] for span in spans)
+                if _is_structure_heading(spans):
+                    if "חלק" in line_text:
+                        current_part = line_text.strip()
+                        current_chapter = None
+                    elif "פרק" in line_text:
+                        current_chapter = line_text.strip()
                 clause_spans = [s for s in spans if s["font"] == CLAUSE_NUMBER_FONT]
                 if clause_spans:
                     number = clause_spans[0]["text"].strip() + _clause_suffix(spans)
-                    boundaries.append((len(lines), number))
-                lines.append("".join(span["text"] for span in spans))
+                    boundaries.append(
+                        (len(lines), number, current_part, current_chapter)
+                    )
+                lines.append(line_text)
     return lines, boundaries
 
 
@@ -77,18 +109,21 @@ def _disambiguate(numbers: list[str]) -> list[str]:
     return result
 
 
-def extract_clauses(pdf_path: Path, body_page_range: range = BODY_PAGE_RANGE) -> list[Document]:
+def extract_clauses(
+    pdf_path: Path, body_page_range: range = BODY_PAGE_RANGE
+) -> list[Document]:
     pdf_doc = pymupdf.open(pdf_path)
     lines, boundaries = _locate_clause_boundaries(pdf_doc, body_page_range)
-    numbers = _disambiguate([number for _, number in boundaries])
+    numbers = _disambiguate([number for _, number, _, _ in boundaries])
 
     clauses = []
-    for i, (start, _) in enumerate(boundaries):
+    for i, (start, _, part, chapter) in enumerate(boundaries):
         end = boundaries[i + 1][0] if i + 1 < len(boundaries) else len(lines)
         content = "\n".join(lines[start:end]).strip()
         if REPEALED_MARKER in content[:40]:
             continue
-        clauses.append(Document(page_content=content, metadata={"source": f"סעיף {numbers[i]}"}))
+        metadata = {"source": f"סעיף {numbers[i]}", "part": part, "chapter": chapter}
+        clauses.append(Document(page_content=content, metadata=metadata))
     return clauses
 
 
@@ -106,7 +141,9 @@ def retrieve_clauses(
 ) -> list[RetrievedClause]:
     results = vector_store.similarity_search_with_score(query, k=k)
     return [
-        RetrievedClause(content=doc.page_content, source=doc.metadata["source"], score=score)
+        RetrievedClause(
+            content=doc.page_content, source=doc.metadata["source"], score=score
+        )
         for doc, score in results
     ]
 

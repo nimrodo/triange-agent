@@ -33,6 +33,13 @@ def test_extract_clauses_content_is_the_real_clause_text() -> None:
     assert "המס על הכנסתו החייבת של יחיד" in clause_121.page_content
 
 
+def test_extract_clauses_preserves_the_containing_part_structure() -> None:
+    clauses = extract_clauses(FIXTURE_PDF, FIXTURE_PAGE_RANGE)
+
+    clause_121 = next(c for c in clauses if c.metadata["source"] == "סעיף 121")
+    assert clause_121.metadata["part"] == "חלק ז': שיעורי המס"
+
+
 def test_retrieve_clauses_returns_relevant_clause_for_real_hebrew_query() -> None:
     embeddings = OllamaEmbeddings(model="bge-m3")
     vector_store = build_vector_store(FIXTURE_PDF, embeddings, FIXTURE_PAGE_RANGE)

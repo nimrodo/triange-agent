@@ -64,7 +64,7 @@ def probe_pymupdf(path: Path) -> None:
 
 
 def probe_pdfplumber(path: Path) -> None:
-    import pdfplumber
+    import pdfplumber  # ty: ignore[unresolved-import] -- installed via `uv run --with`
 
     with pdfplumber.open(path) as pdf:
         print(f"\n=== pdfplumber: {len(pdf.pages)} pages ===")
