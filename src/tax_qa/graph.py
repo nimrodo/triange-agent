@@ -1,7 +1,7 @@
 from typing import cast
 
 from langchain_core.language_models import BaseChatModel
-from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_core.vectorstores import VectorStore
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -13,7 +13,7 @@ from tax_qa.tools import make_search_tool
 
 def build_graph(
     llm: BaseChatModel,
-    retriever: InMemoryVectorStore,
+    retriever: VectorStore,
     checkpointer: BaseCheckpointSaver | None = None,
     search_k: int = 4,
 ) -> CompiledStateGraph:

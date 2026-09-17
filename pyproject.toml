@@ -8,6 +8,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "langchain-chroma>=1.1.0",
     "langchain-google-genai>=4.4.0",
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.6.2",
@@ -18,6 +19,7 @@ dependencies = [
     "pydantic-settings>=2.15.0",
     "pymupdf>=1.28.2",
     "reflex>=0.9.11.post1",
+    "starlette<1.6.0",
 ]
 
 [project.scripts]

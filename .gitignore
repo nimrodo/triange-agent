@@ -224,3 +224,6 @@ __marimo__/
 
 # research spike scratch data (issue #30)
 .research-data/
+
+# persisted tax_qa vector store (embeddings, rebuilt from the ordinance PDF)
+.vector-store/

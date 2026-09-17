@@ -1,11 +1,14 @@
 import re
+import time
 from pathlib import Path
 
 import pymupdf
+from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.tools import BaseTool, tool
-from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_core.vectorstores import VectorStore
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from tax_qa.state import RetrievedClause
 
@@ -132,24 +135,77 @@ def extract_clauses(
 # Ollama's bge-m3). Batching keeps each request small regardless of provider.
 DEFAULT_EMBEDDING_BATCH_SIZE = 100
 
+# One chunk per Clause is the primary retrieval unit -- see
+# docs/research/chunking-embedding-findings.md, which found this
+# structure-aware approach outperforms indiscriminate fixed-size splitting
+# on this document. But a handful of outlier Clauses (e.g. section 9's
+# exemptions list) run to tens of thousands of characters: embedded whole,
+# they represent too many unrelated topics at once to be a useful match for
+# any single query, and flood the LLM's context if retrieved. Only those
+# outliers get split, each sub-chunk keeping the parent Clause's citation.
+MAX_CLAUSE_CHARS = 2000
+CLAUSE_CHUNK_OVERLAP = 200
+
+
+def split_oversized_clauses(clauses: list[Document]) -> list[Document]:
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=MAX_CLAUSE_CHARS, chunk_overlap=CLAUSE_CHUNK_OVERLAP
+    )
+    result = []
+    for clause in clauses:
+        if len(clause.page_content) > MAX_CLAUSE_CHARS:
+            result.extend(splitter.split_documents([clause]))
+        else:
+            result.append(clause)
+    return result
+
 
 def build_vector_store(
     pdf_path: Path,
     embeddings: Embeddings,
     body_page_range: range = BODY_PAGE_RANGE,
     batch_size: int = DEFAULT_EMBEDDING_BATCH_SIZE,
-) -> InMemoryVectorStore:
-    clauses = extract_clauses(pdf_path, body_page_range)
-    vector_store = InMemoryVectorStore(embedding=embeddings)
-    for start in range(0, len(clauses), batch_size):
-        vector_store.add_documents(clauses[start : start + batch_size])
+    persist_directory: Path | None = None,
+    collection_name: str = "tax-ordinance",
+    request_delay_seconds: float = 0.0,
+) -> Chroma:
+    chunks = split_oversized_clauses(extract_clauses(pdf_path, body_page_range))
+    chunk_ids = [f"clause-{i}" for i in range(len(chunks))]
+
+    vector_store = Chroma(
+        embedding_function=embeddings,
+        collection_name=collection_name,
+        persist_directory=str(persist_directory) if persist_directory else None,
+        # Matches the cosine similarity semantics the rest of the pipeline
+        # (the similarity floor in nodes/answer.py) is written against.
+        collection_metadata={"hnsw:space": "cosine"},
+    )
+
+    # ids are stable across runs (deterministic extraction order), so a build
+    # interrupted mid-way (e.g. by a provider rate limit) resumes from
+    # whichever chunks are still missing instead of restarting from scratch.
+    existing_ids = set(vector_store.get(include=[])["ids"])
+    pending = [
+        (chunk_id, chunk)
+        for chunk_id, chunk in zip(chunk_ids, chunks)
+        if chunk_id not in existing_ids
+    ]
+    for start in range(0, len(pending), batch_size):
+        if start > 0 and request_delay_seconds:
+            time.sleep(request_delay_seconds)
+        batch = pending[start : start + batch_size]
+        vector_store.add_documents(
+            [chunk for _, chunk in batch], ids=[chunk_id for chunk_id, _ in batch]
+        )
     return vector_store
 
 
 def retrieve_clauses(
-    vector_store: InMemoryVectorStore, query: str, k: int = 4
+    vector_store: VectorStore, query: str, k: int = 4
 ) -> list[RetrievedClause]:
-    results = vector_store.similarity_search_with_score(query, k=k)
+    # Normalized (0=dissimilar, 1=identical) rather than raw distance, so the
+    # similarity floor in nodes/answer.py means the same thing across backends.
+    results = vector_store.similarity_search_with_relevance_scores(query, k=k)
     return [
         RetrievedClause(
             content=doc.page_content, source=doc.metadata["source"], score=score
@@ -162,7 +218,7 @@ def format_clauses(clauses: list[RetrievedClause]) -> str:
     return "\n\n".join(f"[{c.source}] {c.content}" for c in clauses)
 
 
-def make_search_tool(vector_store: InMemoryVectorStore, k: int = 4) -> BaseTool:
+def make_search_tool(vector_store: VectorStore, k: int = 4) -> BaseTool:
     @tool(response_format="content_and_artifact")
     def search_tax_ordinance(query: str) -> tuple[str, list[RetrievedClause]]:
         """Search the Income Tax Ordinance for Clauses relevant to the query."""
