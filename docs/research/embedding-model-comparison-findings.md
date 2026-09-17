@@ -7,13 +7,13 @@ free/local embedding model with genuine, documented multilingual (including
 Hebrew) support do meaningfully better on the same eval? Paid
 `text-embedding-3-small` remains out of scope (issue #37, declined for cost).
 
-Scratch script used to produce these findings: `scratch_chunk_embed_compare.py`
-(repo root, this branch only) — the same script #31 used, with
+Scratch script used to produce these findings: `scripts/scratch_chunk_embed_compare.py`
+(this branch only) — the same script #31 used, with
 `EMBEDDING_MODEL` swapped from `nomic-embed-text` to `bge-m3`. Run with:
 
 ```
 uv run --with pymupdf --with langchain-text-splitters --with langchain-ollama \
-    --with langchain-core python scratch_chunk_embed_compare.py
+    --with langchain-core python scripts/scratch_chunk_embed_compare.py
 ```
 
 All numbers below are the actual output of that run against the real PDF at

@@ -5,9 +5,9 @@ PyMuPDF on the real gov.il PDF for reading order, RTL correctness, and
 structural markers (chapter/section headings, amendment notes).
 
 Usage:
-    uv run --with pymupdf --with pdfplumber python scratch_pdf_probe.py
+    uv run --with pymupdf --with pdfplumber python scripts/scratch_pdf_probe.py
 
-Downloads the PDF into .research-data/ (gitignored) on first run.
+Downloads the PDF into .research-data/ (gitignored, repo root) on first run.
 """
 
 import re
@@ -20,7 +20,7 @@ PDF_URL = (
     "%D7%94%D7%9B%D7%A0%D7%A1%D7%94%20%5B%D7%A0%D7%95%D7%A1%D7%97%20%D7%97%D7%93"
     "%D7%A9%5D%20-%20%D7%9C%D7%90%20%D7%9E%D7%A8%D7%95%D7%91%D7%93.pdf"
 )
-DATA_DIR = Path(__file__).parent / ".research-data"
+DATA_DIR = Path(__file__).parent.parent / ".research-data"
 PDF_PATH = DATA_DIR / "ordinance.pdf"
 
 SAMPLE_PAGES = [

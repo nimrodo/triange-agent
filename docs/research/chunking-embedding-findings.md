@@ -8,12 +8,12 @@ existing KnowledgeBase tuning (`chunk_size=400/chunk_overlap=50`,
 relevant clauses well for this document, or does it need different chunk
 sizing, an alternative embedding model, or structure-aware splitting?
 
-Scratch script used to produce these findings: `scratch_chunk_embed_compare.py`
-(repo root, this branch only). Run with:
+Scratch script used to produce these findings: `scripts/scratch_chunk_embed_compare.py`
+(this branch only). Run with:
 
 ```
 uv run --with pymupdf --with langchain-text-splitters --with langchain-ollama \
-    --with langchain-core python scratch_chunk_embed_compare.py
+    --with langchain-core python scripts/scratch_chunk_embed_compare.py
 ```
 
 All numbers below are the actual output of that run against the real PDF at

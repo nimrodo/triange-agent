@@ -29,7 +29,7 @@ actually contain the section that answers the question.
 
 Usage:
     uv run --with pymupdf --with langchain-text-splitters --with langchain-ollama \
-        --with langchain-core python scratch_chunk_embed_compare.py
+        --with langchain-core python scripts/scratch_chunk_embed_compare.py
 
 Requires a local Ollama server with nomic-embed-text pulled (already the
 case in this environment per .env: EMBEDDING_PROVIDER=ollama).
@@ -45,7 +45,7 @@ from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_ollama import OllamaEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-PDF_PATH = Path(__file__).parent / ".research-data" / "ordinance.pdf"
+PDF_PATH = Path(__file__).parent.parent / ".research-data" / "ordinance.pdf"
 # Swapped for issue #39: nomic-embed-text (issue #31) scored 0/6 on both
 # chunking strategies, attributed to weak Hebrew/multilingual support.
 # bge-m3 (BAAI, via Ollama) explicitly reports Hebrew ("he") results in its

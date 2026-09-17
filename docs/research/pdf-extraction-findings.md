@@ -6,12 +6,12 @@ government publication) Hebrew text of the Income Tax Ordinance, fetched
 from the URL in the issue. All findings below are from directly inspecting
 the real PDF, not from documentation about the tools.
 
-Scratch script used to reproduce these findings: `scratch_pdf_probe.py`
-(repo root, this branch only — downloads the PDF into `.research-data/`,
-gitignored). Run with:
+Scratch script used to reproduce these findings: `scripts/scratch_pdf_probe.py`
+(this branch only — downloads the PDF into `.research-data/` at the repo
+root, gitignored). Run with:
 
 ```
-uv run --with pymupdf --with pdfplumber python scratch_pdf_probe.py
+uv run --with pymupdf --with pdfplumber python scripts/scratch_pdf_probe.py
 ```
 
 ## Document facts
@@ -152,6 +152,6 @@ feasible and worth doing as a follow-up:
 
 ## Scratch code
 
-`scratch_pdf_probe.py` at the repo root (this branch only) reproduces the
+`scripts/scratch_pdf_probe.py` (this branch only) reproduces the
 above: downloads the PDF, prints sample-page extracts from both libraries
 side by side, and runs the section/chapter/amendment regex counts.
