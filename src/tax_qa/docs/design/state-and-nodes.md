@@ -9,7 +9,8 @@ Mirrors `TriageState`'s shape, adapted to this context's vocabulary (see `src/ta
 - `TaxQAState` carries the current `question: str`, the current turn's `answer: Answer | None`, and `history: Annotated[list[Exchange], operator.add]` — accumulated across turns via LangGraph's reducer pattern, same mechanism as `TriageState.history`.
 - `Exchange` holds one past turn: the `question` asked and the `answer` it produced.
 - `Answer` is its own model (not flattened onto state): `text: str`, `citations: list[Citation]`, `confidence: Literal["answered", "uncertain", "not_found"]`.
-- `Citation` is its own model: a Clause identifier plus a verbatim quoted excerpt (see `src/tax_qa/CONTEXT.md`).
+- `Citation` is its own model: a Clause identifier plus a verbatim quoted excerpt (see `src/tax_qa/CONTEXT.md`), plus an optional `score: float | None` carried through from the originating `RetrievedClause` -- not part of the Citation concept itself, but needed at the CLI/UI boundary to annotate each source with its similarity score on `uncertain` Answers (issue #43).
+- `Answer.considered: list[RetrievedClause]` holds the near-miss Clauses that were retrieved but didn't clear the similarity floor, populated only on `not_found` -- see step 3 below and the CLI's "considered but didn't qualify" display (issue #43).
 - The retrieval tool's output extends the triage agent's `RetrievedSnippet` shape with a similarity score per retrieved Clause (needed for the confidence floor check below) — e.g. `RetrievedClause(content: str, source: str, score: float)`.
 
 ## Node structure

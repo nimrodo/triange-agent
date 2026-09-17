@@ -3,15 +3,14 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from tax_qa.dependencies import Settings, build_llm, build_retriever
 from tax_qa.graph import build_graph
+from tax_qa.nodes.answer import DEFAULT_SIMILARITY_FLOOR
 from tax_qa.state import Answer, Citation, RetrievedClause
 
 THREAD_ID = "cli-session"
 SEPARATOR = "-" * 60
 EXIT_COMMANDS = {"exit", "quit", "q"}
 
-NOT_FOUND_EXPLANATION = (
-    "לא נמצא בפקודה סעיף התואם את השאלה במידה מספקת — התשובה אינה מבוססת על מסמך זה."
-)
+NOT_FOUND_EXPLANATION = "התשובה אינה מבוססת על מסמך זה"
 
 
 def _percent(score: float) -> str:
@@ -32,11 +31,11 @@ def _format_considered(clause: RetrievedClause) -> str:
 
 def format_answer(answer: Answer) -> str:
     if answer.confidence == "not_found":
+        floor_pct = _percent(DEFAULT_SIMILARITY_FLOOR)
         lines = [
-            "✗ לא נמצאה התייחסות",
-            NOT_FOUND_EXPLANATION,
+            f"✗ לא נמצאה התייחסות — {NOT_FOUND_EXPLANATION}",
             "",
-            "הסעיפים הקרובים ביותר שנבדקו, ולא עברו את סף ההתאמה:",
+            f"הסעיפים הקרובים ביותר שנבדקו, ולא עברו את סף ההתאמה ({floor_pct}):",
         ]
         lines.extend(_format_considered(clause) for clause in answer.considered)
         return "\n".join(lines)
