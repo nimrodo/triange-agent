@@ -11,10 +11,25 @@ from tax_qa.formatting import percent
 from tax_qa.graph import build_graph
 from tax_qa.state import Answer, Exchange
 
+INK = "#1c2b33"
+INK_MUTED = "#5b6b73"
+PAPER = "#efeade"
+PAPER_RAISED = "#ffffff"
+RULE = "#c9c0aa"
+GOLD = "#96721f"
+GOLD_BG = "#f4ead2"
+AMBER = "#a6720a"
+AMBER_BG = "#f6ecd8"
+RUST = "#8c3b2e"
+RUST_BG = "#f2e2de"
+
+SERIF_FONT = "'Frank Ruhl Libre', 'Times New Roman', serif"
+SANS_FONT = "'Heebo', 'Segoe UI', sans-serif"
+
 CONFIDENCE_STYLE = {
-    "answered": {"border": "#1e8e3e", "bg": "#e6f4ea", "fg": "#1e8e3e", "icon": "✔"},
-    "uncertain": {"border": "#b98900", "bg": "#fff6e0", "fg": "#b98900", "icon": "⚠"},
-    "not_found": {"border": "#8a2c2c", "bg": "#f6e9e9", "fg": "#8a2c2c", "icon": "✗"},
+    "answered": {"border": GOLD, "bg": GOLD_BG, "fg": GOLD, "icon": "✔"},
+    "uncertain": {"border": AMBER, "bg": AMBER_BG, "fg": AMBER, "icon": "⚠"},
+    "not_found": {"border": RUST, "bg": RUST_BG, "fg": RUST, "icon": "✗"},
 }
 
 NOT_FOUND_NOTE = (
@@ -53,10 +68,12 @@ def _sources_label(answer: Answer) -> str:
 class SourceView(BaseModel):
     source: str
     excerpt: str
-    percent: str
+    meta_label: str
+    demoted: bool = False
 
 
 class MessageView(BaseModel):
+    number: int
     question: str
     confidence: str
     badge: str
@@ -66,11 +83,16 @@ class MessageView(BaseModel):
     sources: list[SourceView]
 
 
-def _exchange_to_view(exchange: Exchange) -> MessageView:
+def _exchange_to_view(exchange: Exchange, number: int) -> MessageView:
     answer = exchange.answer
     if answer.confidence == "not_found":
         sources = [
-            SourceView(source=c.source, excerpt=c.content, percent=percent(c.score))
+            SourceView(
+                source=c.source,
+                excerpt=c.content,
+                meta_label=f"דמיון: {percent(c.score)}",
+                demoted=True,
+            )
             for c in answer.considered
         ]
     else:
@@ -78,11 +100,12 @@ def _exchange_to_view(exchange: Exchange) -> MessageView:
             SourceView(
                 source=c.source,
                 excerpt=c.excerpt,
-                percent=percent(c.score) if c.score is not None else "",
+                meta_label=percent(c.score) if c.score is not None else "",
             )
             for c in answer.citations
         ]
     return MessageView(
+        number=number,
         question=exchange.question,
         confidence=answer.confidence,
         badge=_badge_text(answer),
@@ -131,44 +154,45 @@ class ChatState(rx.State):
 
         async with self:
             exchange = Exchange(question=question, answer=result["answer"])
-            self.messages.append(_exchange_to_view(exchange))
+            view = _exchange_to_view(exchange, number=len(self.messages) + 1)
+            self.messages.append(view)
             self.is_answering = False
 
 
-def _source_card(source: SourceView) -> rx.Component:
-    return rx.el.details(
-        rx.el.summary(
-            rx.text(source.source, font_weight="600", color="#333"),
-            rx.text(f"דמיון: {source.percent}", color="#888", font_size="12px"),
-            display="flex",
+def _source_row(source: SourceView) -> rx.Component:
+    return rx.box(
+        rx.hstack(
+            rx.text(
+                source.source,
+                font_family=SANS_FONT,
+                font_weight="600",
+                font_size="13px",
+                color=INK,
+            ),
+            rx.text(
+                source.meta_label,
+                font_family=SANS_FONT,
+                font_size="12px",
+                color=INK_MUTED,
+            ),
             justify_content="space-between",
-            align_items="center",
-            padding="7px 10px",
-            cursor="pointer",
+            width="100%",
         ),
-        rx.box(
+        rx.text(
             source.excerpt,
-            padding="8px 10px",
-            color="#444",
-            line_height="1.5",
-            background="#fff",
-            border_top="1px solid #ddd6cc",
+            font_family=SERIF_FONT,
+            font_size="14px",
+            line_height="1.6",
+            color=INK,
+            margin_top="4px",
         ),
-        border="1px solid #ddd6cc",
-        border_radius="8px",
-        background="#fafaf8",
-        font_size="13px",
-        overflow="hidden",
+        opacity=rx.cond(source.demoted, "0.6", "1"),
+        padding="10px 0",
+        border_bottom=f"1px solid {RULE}",
     )
 
 
-def _answer_bubble(msg: MessageView) -> rx.Component:
-    border_color = rx.match(
-        msg.confidence,
-        ("answered", CONFIDENCE_STYLE["answered"]["border"]),
-        ("uncertain", CONFIDENCE_STYLE["uncertain"]["border"]),
-        CONFIDENCE_STYLE["not_found"]["border"],
-    )
+def _answer_entry(msg: MessageView) -> rx.Component:
     badge_bg = rx.match(
         msg.confidence,
         ("answered", CONFIDENCE_STYLE["answered"]["bg"]),
@@ -185,11 +209,12 @@ def _answer_bubble(msg: MessageView) -> rx.Component:
         rx.box(
             msg.badge,
             display="inline-flex",
-            font_size="11px",
+            font_family=SANS_FONT,
+            font_size="12px",
             font_weight="600",
-            padding="2px 8px",
-            border_radius="999px",
-            margin_bottom="8px",
+            padding="2px 10px",
+            border_radius="3px",
+            margin_bottom="10px",
             background=badge_bg,
             color=badge_fg,
         ),
@@ -197,61 +222,69 @@ def _answer_bubble(msg: MessageView) -> rx.Component:
             msg.confidence == "not_found",
             rx.text(
                 msg.not_found_note,
-                font_size="14px",
-                color="#555",
-                font_style="italic",
+                font_family=SERIF_FONT,
+                font_size="15px",
+                line_height="1.6",
+                color=INK_MUTED,
             ),
-            rx.markdown(msg.text, font_size="15px", line_height="1.5", color="#222"),
+            rx.markdown(
+                msg.text,
+                font_family=SERIF_FONT,
+                font_size="16px",
+                line_height="1.7",
+                color=INK,
+            ),
         ),
         rx.vstack(
-            rx.text(msg.sources_label, font_size="11px", color="#888"),
-            rx.foreach(msg.sources, _source_card),
+            rx.text(
+                msg.sources_label,
+                font_family=SANS_FONT,
+                font_size="12px",
+                color=INK_MUTED,
+                margin_bottom="2px",
+            ),
+            rx.foreach(msg.sources, _source_row),
             align_items="stretch",
-            spacing="1",
-            margin_top="10px",
+            spacing="0",
+            margin_top="14px",
         ),
-        align_self="flex-start",
-        max_width="85%",
-        background="#fff",
-        border="1px solid #ddd6cc",
-        border_left=f"5px solid {border_color}",
-        border_radius="14px 14px 14px 4px",
-        padding="12px 14px",
+        align_self="stretch",
+        padding_top="10px",
     )
 
 
 def _turn(msg: MessageView) -> rx.Component:
     return rx.vstack(
-        rx.box(
-            msg.question,
-            align_self="flex-end",
-            background="#2f6f4f",
-            color="#fff",
-            padding="10px 14px",
-            border_radius="14px 14px 4px 14px",
-            max_width="80%",
-            font_size="15px",
+        rx.text(
+            f"שאלה {msg.number}",
+            font_family=SANS_FONT,
+            font_size="12px",
+            color=INK_MUTED,
         ),
-        _answer_bubble(msg),
+        rx.text(
+            msg.question,
+            font_family=SANS_FONT,
+            font_size="17px",
+            font_weight="500",
+            color=INK,
+        ),
+        rx.box(height="1px", background=RULE, margin="12px 0"),
+        _answer_entry(msg),
         align_items="stretch",
-        spacing="2",
+        spacing="1",
         width="100%",
+        padding="0 0 24px",
+        border_bottom=f"1px solid {RULE}",
     )
 
 
 def _thinking_indicator() -> rx.Component:
-    return rx.box(
-        rx.hstack(
-            rx.spinner(size="1"),
-            rx.text("חושב...", font_size="14px", color="#888"),
-            spacing="2",
-            align_items="center",
-        ),
-        align_self="flex-start",
-        background="#fff",
-        border="1px solid #ddd6cc",
-        border_radius="14px 14px 14px 4px",
-        padding="10px 14px",
+    return rx.hstack(
+        rx.spinner(size="1"),
+        rx.text("חושב...", font_family=SANS_FONT, font_size="14px", color=INK_MUTED),
+        spacing="2",
+        align_items="center",
+        padding_top="4px",
     )
 
 
@@ -268,29 +301,36 @@ def _composer() -> rx.Component:
                 auto_height=True,
                 rows="1",
                 flex="1",
+                font_family=SANS_FONT,
+                background=PAPER_RAISED,
+                border=f"1px solid {RULE}",
+                color=INK,
             ),
             rx.button(
                 "שלח",
                 type="button",
                 on_click=ChatState.ask,
                 disabled=ChatState.is_answering,
-                background="#2f6f4f",
-                color="#fff",
+                font_family=SANS_FONT,
+                background=INK,
+                color=PAPER_RAISED,
+                border="none",
             ),
             rx.button(
                 "שאלה חדשה",
                 type="button",
                 on_click=ChatState.new_question,
                 disabled=ChatState.is_answering,
-                background="#fff",
-                color="#2f6f4f",
-                border="1px solid #2f6f4f",
+                font_family=SANS_FONT,
+                background="transparent",
+                color=INK,
+                border=f"1px solid {RULE}",
             ),
             align_items="flex-end",
         ),
         on_submit=ChatState.ask,
-        border_top="1px solid #ddd6cc",
-        background="#fff",
+        border_top=f"1px solid {RULE}",
+        background=PAPER_RAISED,
         padding="12px 16px",
         width="100%",
     )
@@ -299,16 +339,22 @@ def _composer() -> rx.Component:
 def index() -> rx.Component:
     return rx.box(
         rx.box(
-            rx.heading("עוזר שאלות על פקודת מס הכנסה", size="5"),
+            rx.heading(
+                "עוזר שאלות על פקודת מס הכנסה",
+                size="5",
+                font_family=SERIF_FONT,
+                color=INK,
+            ),
             rx.text(
-                "הדגמה • שאלות בעברית בלבד • התשובות מבוססות על ציטוט מהפקודה בלבד",
+                "שאלות בעברית בלבד • התשובות מבוססות על ציטוט מהפקודה בלבד",
+                font_family=SANS_FONT,
                 font_size="12px",
-                color="#777",
+                color=INK_MUTED,
                 margin_top="4px",
             ),
             padding="16px 20px",
-            border_bottom="1px solid #ddd6cc",
-            background="#fff",
+            border_bottom=f"1px solid {RULE}",
+            background=PAPER_RAISED,
         ),
         rx.vstack(
             rx.foreach(ChatState.messages, _turn),
@@ -317,24 +363,31 @@ def index() -> rx.Component:
             overflow_y="auto",
             padding="20px",
             align_items="stretch",
-            spacing="4",
+            spacing="6",
             width="100%",
         ),
         _composer(),
         direction="rtl",
         width="100%",
-        max_width="720px",
+        max_width="760px",
         height="100vh",
         margin="0 auto",
         display="flex",
         flex_direction="column",
-        background="#f4f2ee",
+        background=PAPER,
     )
 
 
 app = rx.App(
     html_lang="he",
     html_custom_attrs={"dir": "rtl"},
-    style={"direction": "rtl"},
+    style={"direction": "rtl", "font_family": SANS_FONT},
+    stylesheets=[
+        (
+            "https://fonts.googleapis.com/css2"
+            "?family=Frank+Ruhl+Libre:wght@400;500;700&family=Heebo:wght@400;500;700"
+            "&display=swap"
+        )
+    ],
 )
 app.add_page(index, title="עוזר שאלות על פקודת מס הכנסה")
