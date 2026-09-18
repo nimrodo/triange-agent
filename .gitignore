@@ -227,3 +227,9 @@ __marimo__/
 
 # persisted tax_qa vector store (embeddings, rebuilt from the ordinance PDF)
 .vector-store/
+
+# macOS
+.DS_Store
+
+# Claude Code session-local lock file (PID/session id, not shared state)
+.claude/scheduled_tasks.lock
