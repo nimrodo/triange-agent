@@ -1,0 +1,12 @@
+.git
+.venv
+.web
+__pycache__
+*.pyc
+tests/
+docs/
+scripts/
+.env
+.env.*
+!.env.example
+.DS_Store

@@ -3,7 +3,7 @@ import functools
 import reflex as rx
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import InMemorySaver
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from tax_qa.dependencies import Settings, build_llm, build_retriever
 from tax_qa.formatting import percent
@@ -94,7 +94,9 @@ def _exchange_to_view(exchange: Exchange) -> MessageView:
 
 class ChatState(rx.State):
     question: str = ""
-    messages: list[MessageView] = Field(default_factory=list)
+    # Reflex's State metaclass gives each instance its own list; this isn't
+    # a shared mutable default the way it would be on a plain class/dataclass.
+    messages: list[MessageView] = []  # noqa: RUF012
     is_answering: bool = False
 
     @rx.event
@@ -226,6 +228,22 @@ def _turn(msg: MessageView) -> rx.Component:
     )
 
 
+def _thinking_indicator() -> rx.Component:
+    return rx.box(
+        rx.hstack(
+            rx.spinner(size="1"),
+            rx.text("חושב...", font_size="14px", color="#888"),
+            spacing="2",
+            align_items="center",
+        ),
+        align_self="flex-start",
+        background="#fff",
+        border="1px solid #ddd6cc",
+        border_radius="14px 14px 14px 4px",
+        padding="10px 14px",
+    )
+
+
 def _composer() -> rx.Component:
     return rx.hstack(
         rx.input(
@@ -266,6 +284,7 @@ def index() -> rx.Component:
         ),
         rx.vstack(
             rx.foreach(ChatState.messages, _turn),
+            rx.cond(ChatState.is_answering, _thinking_indicator()),
             flex="1",
             overflow_y="auto",
             padding="20px",
