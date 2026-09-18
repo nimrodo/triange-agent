@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "reflex-docs": {
+      "source": "reflex-dev/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/reflex-docs/SKILL.md",
+      "computedHash": "8a1802f2214e97e56d0548c660c7774b4ff9470b9e07ba3750b4918c864c0432"
+    }
+  }
+}

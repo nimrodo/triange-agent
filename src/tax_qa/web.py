@@ -1,4 +1,5 @@
 import functools
+import uuid
 
 import reflex as rx
 from langchain_core.runnables import RunnableConfig
@@ -98,10 +99,19 @@ class ChatState(rx.State):
     # a shared mutable default the way it would be on a plain class/dataclass.
     messages: list[MessageView] = []  # noqa: RUF012
     is_answering: bool = False
+    thread_id: str = ""
 
     @rx.event
     def set_question(self, value: str) -> None:
         self.question = value
+
+    @rx.event
+    def new_question(self) -> None:
+        if self.is_answering:
+            return
+        self.messages = []
+        self.question = ""
+        self.thread_id = uuid.uuid4().hex
 
     @rx.event(background=True)
     async def ask(self):
@@ -111,11 +121,12 @@ class ChatState(rx.State):
                 return
             self.question = ""
             self.is_answering = True
+            if not self.thread_id:
+                self.thread_id = uuid.uuid4().hex
+            thread_id = self.thread_id
 
         graph = _get_graph()
-        config: RunnableConfig = {
-            "configurable": {"thread_id": self.router.session.client_token}
-        }
+        config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
         result = await graph.ainvoke({"question": question}, config)
 
         async with self:
@@ -190,7 +201,7 @@ def _answer_bubble(msg: MessageView) -> rx.Component:
                 color="#555",
                 font_style="italic",
             ),
-            rx.text(msg.text, font_size="15px", line_height="1.5", color="#222"),
+            rx.markdown(msg.text, font_size="15px", line_height="1.5", color="#222"),
         ),
         rx.vstack(
             rx.text(msg.sources_label, font_size="11px", color="#888"),
@@ -245,22 +256,39 @@ def _thinking_indicator() -> rx.Component:
 
 
 def _composer() -> rx.Component:
-    return rx.hstack(
-        rx.input(
-            value=ChatState.question,
-            on_change=ChatState.set_question,
-            placeholder="הקלד שאלה בעברית...",
-            disabled=ChatState.is_answering,
-            direction="rtl",
-            flex="1",
+    return rx.form(
+        rx.hstack(
+            rx.text_area(
+                value=ChatState.question,
+                on_change=ChatState.set_question,
+                placeholder="הקלד שאלה בעברית...",
+                disabled=ChatState.is_answering,
+                direction="rtl",
+                enter_key_submit=True,
+                auto_height=True,
+                rows="1",
+                flex="1",
+            ),
+            rx.button(
+                "שלח",
+                type="button",
+                on_click=ChatState.ask,
+                disabled=ChatState.is_answering,
+                background="#2f6f4f",
+                color="#fff",
+            ),
+            rx.button(
+                "שאלה חדשה",
+                type="button",
+                on_click=ChatState.new_question,
+                disabled=ChatState.is_answering,
+                background="#fff",
+                color="#2f6f4f",
+                border="1px solid #2f6f4f",
+            ),
+            align_items="flex-end",
         ),
-        rx.button(
-            "שלח",
-            on_click=ChatState.ask,
-            disabled=ChatState.is_answering,
-            background="#2f6f4f",
-            color="#fff",
-        ),
+        on_submit=ChatState.ask,
         border_top="1px solid #ddd6cc",
         background="#fff",
         padding="12px 16px",
